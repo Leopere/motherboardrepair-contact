@@ -129,22 +129,11 @@ func initializeForm(form js.Value) {
 	submitHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := args[0]
 		event.Call("preventDefault")
-		if isMailInSubmission(form) {
-			// The website's legacy address controller can be initialized more
-			// than once. Handle Mail-In submissions before its stale duplicate
-			// listeners can reject an address selected by the active controller.
-			event.Call("stopImmediatePropagation")
-		}
 		go handleSubmit(form)
 		return nil
 	})
 	heldFuncs = append(heldFuncs, submitHandler)
-	form.Call("addEventListener", "submit", submitHandler, true)
-}
-
-func isMailInSubmission(form js.Value) bool {
-	serviceType := form.Call("querySelector", "#service_type")
-	return !serviceType.IsNull() && strings.EqualFold(strings.TrimSpace(serviceType.Get("value").String()), "Mail-In")
+	form.Call("addEventListener", "submit", submitHandler)
 }
 
 func setupInputFilters(form js.Value) {
