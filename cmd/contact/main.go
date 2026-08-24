@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"syscall/js"
@@ -26,7 +25,6 @@ var (
 	challengeLock sync.Mutex
 	cachedProof   proofChallenge
 	heldFuncs     []js.Func
-	phonePattern  = regexp.MustCompile(`^\+?[0-9]{7,15}$`)
 )
 
 type proofChallenge struct {
@@ -131,11 +129,22 @@ func initializeForm(form js.Value) {
 	submitHandler := js.FuncOf(func(_ js.Value, args []js.Value) any {
 		event := args[0]
 		event.Call("preventDefault")
+		if isMailInSubmission(form) {
+			// The website's legacy address controller can be initialized more
+			// than once. Handle Mail-In submissions before its stale duplicate
+			// listeners can reject an address selected by the active controller.
+			event.Call("stopImmediatePropagation")
+		}
 		go handleSubmit(form)
 		return nil
 	})
 	heldFuncs = append(heldFuncs, submitHandler)
-	form.Call("addEventListener", "submit", submitHandler)
+	form.Call("addEventListener", "submit", submitHandler, true)
+}
+
+func isMailInSubmission(form js.Value) bool {
+	serviceType := form.Call("querySelector", "#service_type")
+	return !serviceType.IsNull() && strings.EqualFold(strings.TrimSpace(serviceType.Get("value").String()), "Mail-In")
 }
 
 func setupInputFilters(form js.Value) {
@@ -279,30 +288,8 @@ func buildPayload(values map[string]string) payload {
 }
 
 func validatePayload(form js.Value, data payload) error {
-	if data.Name == "" {
-		return errors.New("please enter your name")
-	}
-	if !phonePattern.MatchString(data.Phone) {
-		return errors.New("please enter a valid phone number")
-	}
 	device := form.Call("querySelector", "#device_name")
-	if !device.IsNull() && device.Get("required").Bool() && strings.TrimSpace(data.ExtraFields["device_name"]) == "" {
-		return errors.New("please enter the device name or model")
-	}
-	if strings.TrimSpace(data.Message) == "" {
-		return errors.New("please describe the issue")
-	}
-	if data.FormID == "builders_club_quote" && data.SlackProfile == "" {
-		return errors.New("please provide your Builders Club Slack profile link")
-	}
-	if data.FormID == "trios_college_quote" {
-		parts := strings.Split(strings.ToLower(data.Email), "@")
-		allowed := map[string]bool{"triosstudent.com": true, "easternstudent.ca": true, "trios.com": true, "eastern.ca": true}
-		if len(parts) != 2 || !allowed[parts[1]] {
-			return errors.New("please use your TriOS or Eastern College school email")
-		}
-	}
-	return nil
+	return validatePayloadFields(data, !device.IsNull() && device.Get("required").Bool())
 }
 
 func accepted(form js.Value) bool {

@@ -112,3 +112,43 @@ func TestLeadingZeroBits(t *testing.T) {
 		}
 	}
 }
+
+func TestValidatePayloadFields(t *testing.T) {
+	newPayload := func(serviceType string, includeMailingAddress, includeDeviceName bool) payload {
+		extra := map[string]string{"service_type": serviceType}
+		if includeMailingAddress {
+			extra["mailing_address"] = "123 Test Street"
+		}
+		if includeDeviceName {
+			extra["device_name"] = "MacBook Pro"
+		}
+		return payload{
+			Name:        "Casey",
+			Phone:       "+12267020555",
+			Message:     "Screen flickers on boot",
+			FormID:      "motherboard_repair_quote",
+			ExtraFields: extra,
+		}
+	}
+	for _, test := range []struct {
+		name           string
+		payload        payload
+		deviceRequired bool
+		wantErr        bool
+	}{
+		{name: "valid drop-off payload succeeds without mailing_address", payload: newPayload("Drop-Off", false, true), deviceRequired: false, wantErr: false},
+		{name: "mail-in payload without mailing_address fails", payload: newPayload("Mail-In", false, true), deviceRequired: false, wantErr: true},
+		{name: "mail-in payload with mailing_address succeeds", payload: newPayload("Mail-In", true, true), deviceRequired: false, wantErr: false},
+		{name: "device name required when deviceRequired is true", payload: newPayload("Mail-In", true, false), deviceRequired: true, wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := validatePayloadFields(test.payload, test.deviceRequired)
+			if test.wantErr && err == nil {
+				t.Fatalf("validatePayloadFields() = nil, want error")
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("validatePayloadFields() = %v", err)
+			}
+		})
+	}
+}

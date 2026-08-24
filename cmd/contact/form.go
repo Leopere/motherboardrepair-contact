@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -21,6 +22,7 @@ var (
 	controlChars = regexp.MustCompile(`[\x00-\x1f\x7f]`)
 	phoneDigits  = regexp.MustCompile(`\D`)
 	emailUnsafe  = regexp.MustCompile(`[\s<>]`)
+	phonePattern = regexp.MustCompile(`^\+?[0-9]{7,15}$`)
 )
 
 type payload struct {
@@ -261,6 +263,35 @@ func payloadMap(data payload) map[string]any {
 		result["extra_fields"] = data.ExtraFields
 	}
 	return result
+}
+
+func validatePayloadFields(data payload, deviceRequired bool) error {
+	if data.Name == "" {
+		return errors.New("please enter your name")
+	}
+	if !phonePattern.MatchString(data.Phone) {
+		return errors.New("please enter a valid phone number")
+	}
+	if deviceRequired && strings.TrimSpace(data.ExtraFields["device_name"]) == "" {
+		return errors.New("please enter the device name or model")
+	}
+	if strings.TrimSpace(data.Message) == "" {
+		return errors.New("please describe the issue")
+	}
+	if strings.EqualFold(strings.TrimSpace(data.ExtraFields["service_type"]), "Mail-In") && strings.TrimSpace(data.ExtraFields["mailing_address"]) == "" {
+		return errors.New("please select a valid mailing address")
+	}
+	if data.FormID == "builders_club_quote" && data.SlackProfile == "" {
+		return errors.New("please provide your Builders Club Slack profile link")
+	}
+	if data.FormID == "trios_college_quote" {
+		parts := strings.Split(strings.ToLower(data.Email), "@")
+		allowed := map[string]bool{"triosstudent.com": true, "easternstudent.ca": true, "trios.com": true, "eastern.ca": true}
+		if len(parts) != 2 || !allowed[parts[1]] {
+			return errors.New("please use your TriOS or Eastern College school email")
+		}
+	}
+	return nil
 }
 
 func payloadDigest(data payload) string {
