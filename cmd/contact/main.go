@@ -269,6 +269,9 @@ func buildPayload(values map[string]string) payload {
 	if data.SlackProfile != "" {
 		data.ExtraFields["slack_profile"] = data.SlackProfile
 	}
+	if rush := extra["rush_service"]; rush != "" {
+		data.Message = fmt.Sprintf("rush_service: %s\n\n%s", rush, strings.TrimSpace(data.Message))
+	}
 	if device := strings.TrimSpace(extra["device_name"]); device != "" {
 		data.Message = fmt.Sprintf("--- device_name ---\ndevice_name: %s\n\n%s", device, strings.TrimSpace(data.Message))
 	}
