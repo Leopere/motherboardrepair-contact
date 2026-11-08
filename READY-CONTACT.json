@@ -1,0 +1,124 @@
+{
+  "task": "Motherboard contact submit failure",
+  "source_repository": "Leopere/motherboardrepair-contact",
+  "source_branch": "main",
+  "source_sha": "23484306dcd2fe4beff27173ec23de620df2de1f",
+  "baseline_source_sha": "d1e230f3171890096634b808f9408efd28b3b7fb",
+  "result": "diagnostic_loss_repaired_underlying_event_cause_unproven",
+  "root_cause": null,
+  "proven_defect": "handleSubmit discarded submit error; old Notomo event lacked status and cause. The inspected client/proof/relay contract succeeds offline.",
+  "limitations": [
+    "No live submission or production service calls made. No deployed-version or end-to-end delivery claim.",
+    "Old event status/body/cause cannot be recovered by this source patch.",
+    "Source push alone does not update committed consumer embed."
+  ],
+  "diagnostics": {
+    "event": "contact_form_submission_failed",
+    "stage": "submit",
+    "status": "numeric HTTP 100..599 or 0; consumer Notomo wrapper converts to string",
+    "code": "finite failure class with optional :FORM_PROOF_INVALID or :FORM_PROOF_UNAVAILABLE",
+    "private_values": "not emitted; arbitrary errors, messages, bodies, relay codes and form IDs are filtered"
+  },
+  "tests": [
+    {
+      "command": "make verify",
+      "result": "passed",
+      "go_version": "go1.26.7",
+      "checks": [
+        "go test ./...",
+        "GOOS=js GOARCH=wasm go vet ./...",
+        "tracked WASM build",
+        "WASM magic check"
+      ]
+    },
+    {
+      "command": "node tests/contact-browser.cjs",
+      "result": "15/15 passed",
+      "browser": "Playwright 1.65.0 Chromium 158",
+      "network": "all requests fulfilled offline or aborted; service workers blocked, remote DNS disabled, Node fetch and Cloudflare sockets forbidden",
+      "assertions": [
+        "actual relay HMAC/proof/timing verification and durable-queue 202 contract",
+        "single proof-invalid refresh only",
+        "proof HTTP/JSON/schema/network failures",
+        "submit 403/429/503 and allowlisted proof codes",
+        "unknown-code and response-body filtering",
+        "non-JSON and false success flags",
+        "network rejection and real 20-second timeout",
+        "response-read rejection with retained HTTP status",
+        "exact metadata through existing consumer Notomo wrapper",
+        "input retention and button restoration"
+      ]
+    },
+    {
+      "command": "CONTACT_DIST=/tmp/contact-baseline/dist CONTACT_BASELINE=1 node tests/contact-browser.cjs",
+      "source_sha": "d1e230f3171890096634b808f9408efd28b3b7fb",
+      "result": "15/15 passed; old metadata lacks all diagnostic status/cause"
+    },
+    {
+      "command": "node --test test/abuse-protection.test.js test/lead-relay.test.js",
+      "repository": "Leopere/hearth-home-contact-relay",
+      "source_sha": "2ff5a1ad076787d287835512d40655b22b95dded",
+      "result": "31/31 passed with fake dependencies"
+    },
+    {
+      "command": "git diff --check; node --check tests/contact-browser.cjs; make -n browser-test",
+      "result": "passed"
+    },
+    {
+      "command": "./scripts/sync.sh /tmp/contact-review-embed",
+      "result": "passed; temporary review artifacts only; consumer untouched"
+    }
+  ],
+  "read_only_consumer": {
+    "repository": "Leopere/staging-motherboardrepair-ca",
+    "branch": "staging",
+    "sha": "7d5de862274ce72e3bf237aabea2a56902933342",
+    "working_tree": "unchanged",
+    "existing_manifest_content_revision_matches_baseline": true
+  },
+  "review_embed_manifest": {
+    "source_repository": "Leopere/motherboardrepair-contact",
+    "source_revision": "sha256:b9f4a6c5df520906668f254ba687836ddb1a889f43ba820ae67b1f2c94d387aa",
+    "sha256": "0278e24bba7ec951603f4abab9304eceefe5eee50bad30e8d0ba23a276eee3b6",
+    "wasm_exec_sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "loader_sha256": "0c399a09e5dcca613cf5b789f2254eb3a4981f992739cca988ab09837f7c61be",
+    "go_version": "go1.26.7"
+  },
+  "consumer_update_responsibility": {
+    "owner": "primary",
+    "files": [
+      "docs/contact-embed/contact-form.wasm",
+      "docs/contact-embed/wasm_exec.js",
+      "docs/contact-embed/loader.js",
+      "docs/contact-embed/manifest.json"
+    ],
+    "cache_key_references": 62,
+    "reference_roots": [
+      "docs/",
+      "locales/templates/"
+    ],
+    "old_loader_key": "0adfa014090a",
+    "new_loader_key": "0c399a09e5dc",
+    "requirements": "Primary reviews concrete runtime patch and consumer artifact/reference delta before any consumer/staging/production change or push; run existing embed/source/localization/build/intercepted browser checks."
+  },
+  "primary_next_delivery_command": "From the pinned runtime source checkout, after primary review of the consumer update: make verify; ./scripts/sync.sh \"$CONSUMER/docs/contact-embed\"",
+  "primary_jenkins_delivery_command": "In approved consumer checkout using its existing delivery flow: ./scripts/deploy-jenkins.sh",
+  "jenkins_script_target": "/opt/homebrew/bin/python3 /Users/aedev/.local/share/jenkins-local/jenkins-delivery.py deploy-motherboardrepair-ca",
+  "primary_read_only_logs": {
+    "host": "forms.motherboardrepair.ca",
+    "service": "Cloudflare website-lead-intake",
+    "source_repository": "Leopere/hearth-home-contact-relay",
+    "inspected_source_sha": "2ff5a1ad076787d287835512d40655b22b95dded",
+    "deployed_source_version": "unverified; primary maps active CF_VERSION_METADATA.id to deployed relay Git SHA",
+    "safe_projection": "UTC time, service/host, route/method, numeric status, duration bucket, deployed version/source, finite operation outcome and allowlisted proof code only; full contract in runbook",
+    "runbook": "docs/contact-failure-runbook.md"
+  },
+  "primary_owns": [
+    "review",
+    "consumer patch",
+    "Jenkins delivery",
+    "live acceptance",
+    "Notomo closure"
+  ],
+  "updated_at": "2026-11-08T03:23:24.229166+00:00"
+}
