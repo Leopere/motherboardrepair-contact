@@ -74,6 +74,9 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
             const context = await browser.newContext({ serviceWorkers: 'block' });
             const page = await context.newPage();
             let posts = 0, proofs = 0, queued = 0;
+            const browserErrors = [];
+            page.on('pageerror', error => browserErrors.push(error.message));
+            page.on('console', message => { if (message.type() === 'error') browserErrors.push(message.text()); });
             const routeErrors = [];
             const env = {
                 MRC_ALLOWED_ORIGINS: origin, MRC_FORM_PROOF_ENABLED: 'true',
@@ -226,6 +229,7 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
                     rejections: window.offlineRejections, text: document.body.textContent
                 }));
                 assert(!JSON.stringify(observations).includes(reporterSentinel));
+                assert(!JSON.stringify(browserErrors).includes(reporterSentinel));
                 assert.equal(observations.issues.length, expected ? 1 : 0);
                 assert.equal(observations.captured.length, expected && !directReporter ? 1 : 0);
                 if (!graphicsPath && expected) assert.equal(await form.locator('#form-message').textContent(),
@@ -261,6 +265,7 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
                 assert.deepEqual(await page.evaluate(() => window.offlineCaptured), observations.captured);
                 assert.deepEqual(await page.evaluate(() => window.offlineRejections), observations.rejections);
                 assert.deepEqual(routeErrors, []);
+                assert(!JSON.stringify(browserErrors).includes(reporterSentinel));
             }
             console.log('PASS ' + (graphicsPath ? 'graphics' : 'native') + (noReporter ? '/no-reporter' : '') + (throwingReporter ? '/throwing-' + (directReporter ? 'reporter' : 'capture') : '') + '/' + initialScenario);
             await context.close();
