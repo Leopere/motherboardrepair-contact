@@ -71,8 +71,9 @@ func main() {
 			formID := "unknown"
 			defer func() {
 				if err != nil {
+					failure := &submissionFailure{details: failureDetails(formID, err)}
 					reportFailure(formID, err)
-					err = &submissionFailure{details: failureDetails(formID, err)}
+					err = failure
 				}
 			}()
 			if len(args) == 0 {
@@ -340,8 +341,22 @@ func showMessage(element js.Value, kind, text string) {
 func reportFailure(formID string, err error) {
 	reporter := js.Global().Get("reportNotomoIssue")
 	if reporter.Type() == js.TypeFunction {
-		reporter.Invoke("contact_form_submission_failed", js.ValueOf(failureDetails(formID, err)))
+		details := js.ValueOf(failureDetails(formID, err))
+		invokeFailureReporter(reporter, details)
 	}
+}
+
+// Telemetry is optional. Recover only a JavaScript exception from this external
+// callback; payload filtering and submission logic remain outside this boundary.
+func invokeFailureReporter(reporter, details js.Value) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			if _, ok := recovered.(js.Error); !ok {
+				panic(recovered)
+			}
+		}
+	}()
+	reporter.Invoke("contact_form_submission_failed", details)
 }
 
 func submit(data payload) (any, error) {

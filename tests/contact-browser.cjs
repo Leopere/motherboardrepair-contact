@@ -25,6 +25,7 @@ registerHooks({ resolve(specifier, context, next) {
 const motherboardOrigin = 'https://motherboardrepair.ca';
 const forms = 'https://forms.motherboardrepair.ca';
 const privateSentinel = 'DO_NOT_REPORT_form_token_email_body';
+const reporterSentinel = 'DO_NOT_REPORT_private_reporter_exception';
 const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.wasm': 'application/wasm', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 (async () => {
@@ -57,7 +58,17 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
             { scenario: 'invalid_payload', expected: ['unknown', 0, ''], graphicsPath: true },
             { scenario: 'invalid_payload', expected: ['unknown', 0, ''], graphicsPath: true, noReporter: true },
         ];
-        for (const { scenario, expected, graphicsPath, noReporter } of runs) {
+        // Exercise actual consumer wrappers when captureError throws, plus a
+        // directly throwing optional reporter on the native path.
+        for (const graphicsPath of [false, true]) {
+            for (const scenario of ['queued', 'refresh', 'unavailable', 'network', 'proof_rejected']) {
+                runs.push({ scenario, expected: cases.find(row => row[0] === scenario)[1], graphicsPath, throwingReporter: true });
+            }
+        }
+        runs.push({ scenario: 'invalid_payload', expected: ['unknown', 0, ''], graphicsPath: true, throwingReporter: true });
+        runs.push({ scenario: 'unavailable', expected: ['submit_http', 503, 'FORM_PROOF_UNAVAILABLE'], graphicsPath: false, throwingReporter: true, directReporter: true });
+        for (const { scenario: initialScenario, expected, graphicsPath, noReporter, throwingReporter, directReporter } of runs) {
+            let scenario = initialScenario;
             if (process.env.CONTACT_BASELINE === '1' && graphicsPath) continue;
             const origin = graphicsPath ? 'https://graphicsrepair.ca' : motherboardOrigin;
             const context = await browser.newContext({ serviceWorkers: 'block' });
@@ -118,16 +129,20 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
             await page.waitForFunction(graphicsPath
                 ? () => window.MRCContactWASM && window.ContactForm === window.MRCContactWASM
                 : () => window.MRCContactWASM && document.querySelector('#quoteForm').dataset.mrcWasmInitialized === 'true');
-            await page.evaluate(({ graphicsPath, noReporter }) => {
+            await page.evaluate(({ graphicsPath, noReporter, throwingReporter, directReporter, reporterSentinel }) => {
                 window.offlineIssues = [];
                 window.offlineCaptured = [];
                 window.offlineRejections = [];
-                window.notomo = { captureError: (error, metadata) => window.offlineCaptured.push([error.message, metadata]) };
+                window.notomo = { captureError: (error, metadata) => {
+                    window.offlineCaptured.push([error.message, metadata]);
+                    if (throwingReporter) throw new Error(reporterSentinel);
+                } };
                 const reporter = window.reportNotomoIssue;
-                if (!graphicsPath && typeof reporter !== 'function') throw Error('consumer Notomo wrapper missing');
+                if (typeof reporter !== 'function') throw Error('consumer Notomo wrapper missing');
                 if (noReporter) delete window.reportNotomoIssue;
                 else window.reportNotomoIssue = (...args) => {
                     window.offlineIssues.push(args);
+                    if (directReporter) throw new Error(reporterSentinel);
                     if (reporter) reporter(...args);
                 };
                 if (graphicsPath) {
@@ -140,7 +155,7 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
                         });
                     };
                 }
-            }, { graphicsPath, noReporter });
+            }, { graphicsPath, noReporter, throwingReporter, directReporter, reporterSentinel });
             const form = page.locator(graphicsPath ? '#repair-form' : '#quoteForm');
             const service = form.locator('[name="service_type"]');
             if (await service.isVisible()) await service.selectOption('In-Person');
@@ -192,19 +207,62 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
                     if (process.env.CONTACT_BASELINE === '1') assert.deepEqual(metadata, legacy);
                     else {
                         assert.deepEqual(metadata, safe);
-                        if (!graphicsPath) {
+                        if (!graphicsPath && !directReporter) {
                             const captured = await page.evaluate(() => window.offlineCaptured);
                             assert.deepEqual(captured, [[issues[0][0], { ...legacy, status: String(expected[1]), code }]]);
                         }
                     }
                 }
                 assert(!JSON.stringify(issues).includes(privateSentinel));
+                assert(!JSON.stringify(issues).includes(reporterSentinel));
                 assert.equal(posts, scenario === 'invalid_payload' ? 0 : scenario.startsWith('proof_') && scenario !== 'proof_rejected' ? 0 : scenario === 'proof_rejected' ? 2 : 1);
                 assert.equal(proofs, scenario === 'invalid_payload' ? 0 : scenario === 'proof_rejected' || (!graphicsPath && scenario.startsWith('proof_')) ? 2 : 1);
                 // A rejection keeps the user's input for their own retry.
                 assert.equal(await form.locator('[name="message"]').inputValue(), privateSentinel);
             }
-            console.log('PASS ' + (graphicsPath ? 'graphics' : 'native') + (noReporter ? '/no-reporter' : '') + '/' + scenario);
+            if (throwingReporter) {
+                const observations = await page.evaluate(() => ({
+                    issues: window.offlineIssues, captured: window.offlineCaptured,
+                    rejections: window.offlineRejections, text: document.body.textContent
+                }));
+                assert(!JSON.stringify(observations).includes(reporterSentinel));
+                assert.equal(observations.issues.length, expected ? 1 : 0);
+                assert.equal(observations.captured.length, expected && !directReporter ? 1 : 0);
+                if (!graphicsPath && expected) assert.equal(await form.locator('#form-message').textContent(),
+                    'Sorry, there was an issue submitting your request. Please try again or leave a voicemail at 226-702-0555.');
+                // A user-initiated second submission proves the same WASM instance
+                // remains usable. The first attempt must never resend on its own.
+                const before = { posts, proofs, queued };
+                const instance = await page.evaluateHandle(() => window.MRCContactWASM);
+                scenario = 'queued';
+                await form.locator('[name="message"]').fill(privateSentinel);
+                // Success reset clears required values; restore them for the next click.
+                if (!expected) {
+                    for (const field of await form.locator('[required]').all()) {
+                        if (!await field.isVisible() || !await field.isEnabled()) continue;
+                        const type = await field.getAttribute('type');
+                        const name = await field.getAttribute('name');
+                        const tag = await field.evaluate(el => el.tagName);
+                        if (type === 'checkbox' || type === 'radio') await field.check();
+                        else if (tag === 'SELECT') await field.selectOption({ index: 1 });
+                        else await field.fill(({ name: 'Offline Fixture', email: 'offline@example.invalid', phone: '+1 202 555 0100', device_name: 'Offline board', model: 'Offline GPU', message: privateSentinel })[name] || 'Offline fixture');
+                    }
+                }
+                await button.click();
+                await form.locator(graphicsPath ? '#form-status.success' : '#form-message.success').waitFor({ state: 'visible', timeout: 35000 });
+                assert.equal(await page.evaluate(previous => previous === window.MRCContactWASM, instance), true);
+                assert.equal(posts, before.posts + 1);
+                assert.equal(proofs, before.proofs + (initialScenario === 'invalid_payload' ? 1 : 0));
+                assert.equal(queued, before.queued + 1);
+                assert.equal(await button.isEnabled(), true);
+                assert.equal(await button.textContent(), label);
+                assert.equal(await form.locator('[name="message"]').inputValue(), '');
+                assert.deepEqual(await page.evaluate(() => window.offlineIssues), observations.issues);
+                assert.deepEqual(await page.evaluate(() => window.offlineCaptured), observations.captured);
+                assert.deepEqual(await page.evaluate(() => window.offlineRejections), observations.rejections);
+                assert.deepEqual(routeErrors, []);
+            }
+            console.log('PASS ' + (graphicsPath ? 'graphics' : 'native') + (noReporter ? '/no-reporter' : '') + (throwingReporter ? '/throwing-' + (directReporter ? 'reporter' : 'capture') : '') + '/' + initialScenario);
             await context.close();
         }
     } finally { await browser.close(); }
