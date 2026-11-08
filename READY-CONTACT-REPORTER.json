@@ -161,7 +161,12 @@
     "ready_marker": "/home/runner/CONTACT-ARTIFACTS-READY",
     "ack_marker": "/home/runner/CONTACT-ARTIFACTS-COLLECTED",
     "bounded_wait_seconds": 90,
-    "status": "packet_ready_for_primary_collection; receipt recorded separately"
+    "status": "primary_acknowledged_collection",
+    "archive_sha256": "abc0305de020a99c55e9fa99c6f7ba2eaac7cbd7e0ee7de7a05fd18b71fb5407",
+    "archive_bytes": 1221982,
+    "acknowledgement_observed_at": "2026-11-08T13:37:26.218984+00:00",
+    "receipt": "CONTACT-ARTIFACTS-COLLECTED marker observed within 90 seconds of ready marker; private marker contents not copied",
+    "packet_ready_scope": "Collected archive is immutable; its internal READY was written before collection acknowledgement. This source READY adds the receipt."
   },
   "cleanup": "Existing launcher deletes ephemeral DO VM immediately on completion; watchdog enforces lifetime. No new provider call.",
   "updated_at": "2026-11-08T13:35:48.996133+00:00"
