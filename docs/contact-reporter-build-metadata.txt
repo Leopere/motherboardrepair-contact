@@ -1,0 +1,12 @@
+path	github.com/Leopere/motherboardrepair-contact/cmd/contact
+mod	github.com/Leopere/motherboardrepair-contact	v0.0.0-20261108132900-28320636bbb0	
+build	-buildmode=exe
+build	-compiler=gc
+build	-trimpath=true
+build	CGO_ENABLED=0
+build	GOARCH=wasm
+build	GOOS=js
+build	vcs=git
+build	vcs.revision=28320636bbb021197649d8f7abdcbe0fa2e3a724
+build	vcs.time=2026-11-08T13:29:00Z
+build	vcs.modified=false

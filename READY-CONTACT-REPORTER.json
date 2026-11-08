@@ -1,0 +1,168 @@
+{
+  "task": "Isolate optional throwing contact failure reporter",
+  "source_repository": "Leopere/motherboardrepair-contact",
+  "source_branch": "main",
+  "starting_sha": "acfbb65c1b5a18790ad85d4356e863ae23cd754e",
+  "source_sha": "28320636bbb021197649d8f7abdcbe0fa2e3a724",
+  "tested_sha": "28320636bbb021197649d8f7abdcbe0fa2e3a724",
+  "evidence_commit_scope": "Source/test commit above is exact clean build input. Resolve later evidence tip with git log -1 --format=%H -- READY-CONTACT-REPORTER.json; evidence-only files are outside the tested code.",
+  "result": "ready_source_offline_reporter_isolation_passed_consumer_delivery_pending",
+  "proven_defect": "JavaScript reporter exception could escape submission goroutine and terminate WASM before finite Promise rejection/native UI recovery.",
+  "fix": "Construct original finite submissionFailure before reporting; recover only js.Error at isolated reporter.Invoke. Non-JS panics rethrown; no submission/business logic inside recovery.",
+  "diagnostic_contract": {
+    "event": "contact_form_submission_failed",
+    "fields": [
+      "component",
+      "form_id",
+      "stage",
+      "status",
+      "code"
+    ],
+    "component": "contact_form",
+    "stage": "submit",
+    "form_id_enum": [
+      "motherboard_repair_quote",
+      "motherboard_repair_business",
+      "motherboard_repair_careers_inquiry",
+      "ads_landing_quote",
+      "builders_club_quote",
+      "trios_college_quote",
+      "motherboard_repair_feedback",
+      "motherboard_repair_positive_feedback",
+      "graphics_card_repair_quote",
+      "unknown"
+    ],
+    "status": "integer HTTP 100..599, otherwise 0; Motherboard Notomo wrapper stringifies it",
+    "code_classes": [
+      "proof_network",
+      "proof_timeout",
+      "proof_response_read",
+      "proof_response_json",
+      "proof_http",
+      "proof_challenge",
+      "proof_compute",
+      "submit_network",
+      "submit_timeout",
+      "submit_response_read",
+      "submit_response_json",
+      "submit_http",
+      "submit_rejected",
+      "unknown"
+    ],
+    "optional_code_suffixes": [
+      ":FORM_PROOF_INVALID",
+      ":FORM_PROOF_UNAVAILABLE"
+    ],
+    "exported_rejection": {
+      "type": "Error",
+      "details": "exact same five filtered fields",
+      "message": "contact form submission failed: <code> (status <status>)",
+      "without_reporter": "same rejection diagnostics; no custom report"
+    },
+    "native": "unchanged localized UI; one terminal custom report",
+    "privacy": "No raw errors, response bodies, token, form values, arbitrary relay codes, IDs or extra metadata fields."
+  },
+  "build": {
+    "go_version": "go1.26.7",
+    "command": "make verify; ./scripts/sync.sh /tmp/contact-reporter-review-embed",
+    "manifest": {
+      "source_repository": "Leopere/motherboardrepair-contact",
+      "source_revision": "sha256:c53c29a7fa4a64c83f0aae8a6fa370b559aaced1382d30c3fab3b270549197c7",
+      "sha256": "242b43ff9357a10cb973c2096611dc1d56ce20bc5be90ecab032f6234c68461e",
+      "wasm_exec_sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+      "loader_sha256": "2f727ac6a13205e06ab481ab6098508c83ba450d0b4f665775e25ee7deeedb5c",
+      "go_version": "go1.26.7"
+    },
+    "vcs_revision": "28320636bbb021197649d8f7abdcbe0fa2e3a724",
+    "vcs_time": "2026-11-08T13:29:00+00:00",
+    "vcs_modified": false,
+    "go_build_metadata": "build-metadata.txt",
+    "reproducibility": "Clean checkout exact tested SHA with Go 1.26.7. Later evidence tip, dirty working tree or different Git revision/time changes WASM. No build flags or manifest contract changed. Two clean builds matched byte-for-byte."
+  },
+  "artifact_sha256": {
+    "contact-form.wasm": "242b43ff9357a10cb973c2096611dc1d56ce20bc5be90ecab032f6234c68461e",
+    "loader.js": "2f727ac6a13205e06ab481ab6098508c83ba450d0b4f665775e25ee7deeedb5c",
+    "manifest.json": "5974ddda4b29c7a1a75a5613211114bd6a22219c349cf674c204e6b25f939f4b",
+    "wasm_exec.js": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14"
+  },
+  "cachekeys": {
+    "motherboard_loader_query_v_first12": "2f727ac6a132",
+    "wasm_loader_embedded_v_full": "242b43ff9357a10cb973c2096611dc1d56ce20bc5be90ecab032f6234c68461e",
+    "wasm_exec_loader_embedded_v_full": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "graphics_loader_reference": "/contact-embed/loader.js (no query); primary owns consumer cache integration"
+  },
+  "tests": {
+    "make_verify": "passed",
+    "browser_cases_expected": 47,
+    "browser_cases_passed": 47,
+    "browser": "Playwright 1.65.0 / Chromium 158",
+    "coverage": "35 existing + 12 throwing-reporter variants; native/Graphics actual WASM and wrappers; original finite Error message/details; private reporter sentinel absent from UI/rejection/browser errors; same WASM second submit; retained input/reset button; exact proof/POST/custom report attempts; no report on success/refreshed success",
+    "network": "All browser requests intercepted/fulfilled or aborted, service workers blocked, DNS disabled, Node fetch/socket forbidden. No live form POST.",
+    "stdout": "validation-stdout.txt",
+    "checks": [
+      "git diff --check",
+      "node --check tests/contact-browser.cjs",
+      "affected-package Go tests",
+      "GOOS=js GOARCH=wasm go vet ./...",
+      "WASM magic via make verify"
+    ],
+    "browser_exit_code": 0,
+    "make_verify_exit_code": 0,
+    "native_cases": 21,
+    "graphics_ui_cases": 23,
+    "exported_invalid_payload_cases": 3
+  },
+  "read_only_fixtures": [
+    {
+      "repository": "Leopere/staging-motherboardrepair-ca",
+      "branch": "staging",
+      "sha": "7d5de862274ce72e3bf237aabea2a56902933342",
+      "working_tree": "unchanged"
+    },
+    {
+      "repository": "Leopere/graphicsrepair-ca",
+      "branch": "main",
+      "sha": "0f004d55fbf7743b04503b79f3956c961761abdf",
+      "working_tree": "unchanged"
+    },
+    {
+      "repository": "Leopere/hearth-home-contact-relay",
+      "branch": "main",
+      "sha": "2ff5a1ad076787d287835512d40655b22b95dded",
+      "working_tree": "unchanged"
+    }
+  ],
+  "consumer_regeneration_commands": [
+    "git clone https://github.com/Leopere/motherboardrepair-contact.git /tmp/contact-reporter-source",
+    "git -C /tmp/contact-reporter-source checkout --detach 28320636bbb021197649d8f7abdcbe0fa2e3a724",
+    "cd /tmp/contact-reporter-source",
+    "test -z \"$(git status --porcelain)\"",
+    "export GOTOOLCHAIN=go1.26.7",
+    "make verify",
+    "./scripts/sync.sh \"$CONSUMER/docs/contact-embed\"",
+    "./scripts/sync.sh \"$GRAPHICS/site/contact-embed\""
+  ],
+  "consumer_delivery": {
+    "owner": "primary",
+    "status": "pending for new reporter-isolation artifacts",
+    "graphics_existing_state": "User reports 0f004d5 deployed older acf artifacts via Jenkins 6; no live verification here",
+    "motherboard": "Staging exception remains pending",
+    "references": "Motherboard docs/ and locales/templates/ loader queries to 2f727ac6a132; Graphics cache/publication handled by primary",
+    "handoff": "README.md"
+  },
+  "limitations": [
+    "Original historical relay cause remains unproven; no closure claim.",
+    "No consumer edits, deploy/provider/Jenkins/paid/live form POST/PPSR/business signing.",
+    "Graphics browser markup is English; no new live or six-language acceptance claim.",
+    "Source has no tracked generated embed outputs; collection archive supplies exactly four public artifacts using existing sync contract."
+  ],
+  "collection": {
+    "archive": "/home/runner/contact-reporter-public-artifacts.tar.gz",
+    "ready_marker": "/home/runner/CONTACT-ARTIFACTS-READY",
+    "ack_marker": "/home/runner/CONTACT-ARTIFACTS-COLLECTED",
+    "bounded_wait_seconds": 90,
+    "status": "packet_ready_for_primary_collection; receipt recorded separately"
+  },
+  "cleanup": "Existing launcher deletes ephemeral DO VM immediately on completion; watchdog enforces lifetime. No new provider call.",
+  "updated_at": "2026-11-08T13:35:48.996133+00:00"
+}

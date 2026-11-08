@@ -1,0 +1,61 @@
+make verify (exit 0)
+go test ./...
+ok  	github.com/Leopere/motherboardrepair-contact/cmd/contact	(cached)
+GOOS=js GOARCH=wasm go vet ./...
+./scripts/build.sh
+
+make browser-test (exit 0; 47/47)
+./scripts/build.sh
+node tests/contact-browser.cjs
+PASS native/queued
+PASS native/refresh
+PASS native/proof_http
+PASS native/proof_invalid_json
+PASS native/proof_schema
+PASS native/proof_network
+PASS native/proof_rejected
+PASS native/unavailable
+PASS native/rate_limit
+PASS native/unknown_code
+PASS native/non_json
+PASS native/bad_success
+PASS native/network
+PASS native/timeout
+PASS native/body_read
+PASS graphics/queued
+PASS graphics/refresh
+PASS graphics/proof_http
+PASS graphics/proof_invalid_json
+PASS graphics/proof_schema
+PASS graphics/proof_network
+PASS graphics/proof_rejected
+PASS graphics/unavailable
+PASS graphics/rate_limit
+PASS graphics/unknown_code
+PASS graphics/non_json
+PASS graphics/bad_success
+PASS graphics/network
+PASS graphics/timeout
+PASS graphics/body_read
+PASS graphics/no-reporter/queued
+PASS graphics/no-reporter/unavailable
+PASS graphics/no-reporter/network
+PASS graphics/invalid_payload
+PASS graphics/no-reporter/invalid_payload
+PASS native/throwing-capture/queued
+PASS native/throwing-capture/refresh
+PASS native/throwing-capture/unavailable
+PASS native/throwing-capture/network
+PASS native/throwing-capture/proof_rejected
+PASS graphics/throwing-capture/queued
+PASS graphics/throwing-capture/refresh
+PASS graphics/throwing-capture/unavailable
+PASS graphics/throwing-capture/network
+PASS graphics/throwing-capture/proof_rejected
+PASS graphics/throwing-capture/invalid_payload
+PASS native/throwing-reporter/unavailable
+
+PASS git diff --check
+PASS node --check tests/contact-browser.cjs
+PASS all three read-only fixtures unchanged
+PASS exactly four public embed files, hashes, clean VCS metadata and full loader cache keys
