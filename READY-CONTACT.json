@@ -1,23 +1,75 @@
 {
-  "task": "Motherboard contact submit failure",
+  "task": "Source-owned contact Notomo exported Promise diagnostic boundary",
   "source_repository": "Leopere/motherboardrepair-contact",
   "source_branch": "main",
-  "source_sha": "23484306dcd2fe4beff27173ec23de620df2de1f",
-  "baseline_source_sha": "d1e230f3171890096634b808f9408efd28b3b7fb",
-  "result": "diagnostic_loss_repaired_underlying_event_cause_unproven",
+  "starting_sha": "dc432755caa6d6ed95644344fed6a6add45fc67b",
+  "prior_native_implementation_sha": "23484306dcd2fe4beff27173ec23de620df2de1f",
+  "source_sha": "8a2ae6a40a16f662d2369eadda136b57ff450631",
+  "tested_sha": "8a2ae6a40a16f662d2369eadda136b57ff450631",
+  "head_sha": "8a2ae6a40a16f662d2369eadda136b57ff450631",
+  "head_sha_scope": "Tested source/test commit before this evidence-only commit. Exact pushed evidence tip is recorded in /home/runner/READY-CONTACT.json; identify the tracked file commit with git log -1 -- READY-CONTACT.json.",
+  "result": "native_and_exported_diagnostic_boundaries_repaired_underlying_relay_failure_unproven",
   "root_cause": null,
-  "proven_defect": "handleSubmit discarded submit error; old Notomo event lacked status and cause. The inspected client/proof/relay contract succeeds offline.",
+  "proven_defect": "2348430 fixed native handleSubmit reporting, but submitProtectedPayload still rejected through promiseFunction with only generic failure text. Exported terminal failures now retain finite message and Error.details, with or without reportNotomoIssue.",
   "limitations": [
-    "No live submission or production service calls made. No deployed-version or end-to-end delivery claim.",
-    "Old event status/body/cause cannot be recovered by this source patch.",
-    "Source push alone does not update committed consumer embed."
+    "No live submission, production, paid, Jenkins or deployment calls.",
+    "Original relay event cause remains unproven; no closure claim.",
+    "Both consumers remain unchanged; source main push cannot update committed embeds.",
+    "Graphics tests use English markup and actual site.js; no claim of six-language/live acceptance.",
+    "Graphics existing console-error capture is consumer-owned; source custom reporting is asserted exactly once when a reporter exists."
   ],
   "diagnostics": {
     "event": "contact_form_submission_failed",
+    "fields": [
+      "component",
+      "form_id",
+      "stage",
+      "status",
+      "code"
+    ],
+    "component": "contact_form",
     "stage": "submit",
-    "status": "numeric HTTP 100..599 or 0; consumer Notomo wrapper converts to string",
-    "code": "finite failure class with optional :FORM_PROOF_INVALID or :FORM_PROOF_UNAVAILABLE",
-    "private_values": "not emitted; arbitrary errors, messages, bodies, relay codes and form IDs are filtered"
+    "form_id_enum": [
+      "motherboard_repair_quote",
+      "motherboard_repair_business",
+      "motherboard_repair_careers_inquiry",
+      "ads_landing_quote",
+      "builders_club_quote",
+      "trios_college_quote",
+      "motherboard_repair_feedback",
+      "motherboard_repair_positive_feedback",
+      "graphics_card_repair_quote",
+      "unknown"
+    ],
+    "status": "integer HTTP 100..599, otherwise 0; Motherboard Notomo wrapper stringifies it",
+    "code_classes": [
+      "proof_network",
+      "proof_timeout",
+      "proof_response_read",
+      "proof_response_json",
+      "proof_http",
+      "proof_challenge",
+      "proof_compute",
+      "submit_network",
+      "submit_timeout",
+      "submit_response_read",
+      "submit_response_json",
+      "submit_http",
+      "submit_rejected",
+      "unknown"
+    ],
+    "optional_code_suffixes": [
+      ":FORM_PROOF_INVALID",
+      ":FORM_PROOF_UNAVAILABLE"
+    ],
+    "exported_rejection": {
+      "type": "Error",
+      "details": "exact same five filtered fields",
+      "message": "contact form submission failed: <code> (status <status>)",
+      "without_reporter": "same rejection diagnostics; no custom report"
+    },
+    "native": "unchanged localized UI; one terminal custom report",
+    "privacy": "No raw errors, response bodies, token, form values, arbitrary relay codes, IDs or extra metadata fields."
   },
   "tests": [
     {
@@ -25,85 +77,138 @@
       "result": "passed",
       "go_version": "go1.26.7",
       "checks": [
-        "go test ./...",
+        "affected-package Go tests (including finite metadata boundary)",
         "GOOS=js GOARCH=wasm go vet ./...",
         "tracked WASM build",
         "WASM magic check"
       ]
     },
     {
-      "command": "node tests/contact-browser.cjs",
-      "result": "15/15 passed",
-      "browser": "Playwright 1.65.0 Chromium 158",
-      "network": "all requests fulfilled offline or aborted; service workers blocked, remote DNS disabled, Node fetch and Cloudflare sockets forbidden",
-      "assertions": [
-        "actual relay HMAC/proof/timing verification and durable-queue 202 contract",
-        "single proof-invalid refresh only",
+      "command": "NODE_PATH=/tmp/contact-browser/node_modules CONTACT_CONSUMER=/tmp/contact-consumer CONTACT_RELAY=/tmp/contact-relay CONTACT_GRAPHICS=/tmp/contact-graphics make browser-test",
+      "result": "35/35 passed",
+      "browser": "Playwright 1.65.0 / Chromium 158",
+      "native": {
+        "cases": 15,
+        "path": "actual Motherboard #quoteForm -> handleSubmit -> reportFailure",
+        "checks": "exact metadata before/after existing Notomo allowlist, exactly one report, localized recovery, input retention, success reset, retry/POST counts"
+      },
+      "graphics_ui": {
+        "cases": 18,
+        "path": "actual in-memory render_index(en) -> site/assets/site.js #repair-form -> submitLeadPayload -> ContactForm.submitProtectedPayload -> catch/finally",
+        "checks": "15 full scenarios plus success/HTTP/network without reporter; exact Error.details and finite error.message; single terminal source report when available; no report on refreshed/successful submission; localized UI and button restoration; retained input; success reset"
+      },
+      "exported_api": {
+        "cases": 2,
+        "path": "invalid decoded payload with and without reporter",
+        "checks": "unknown/0 filtering, rejection remains Error, no proof fetch or POST, no private error text"
+      },
+      "scenarios": [
+        "queued 202 with actual relay proof/queue handler",
+        "single invalid-proof refresh",
         "proof HTTP/JSON/schema/network failures",
-        "submit 403/429/503 and allowlisted proof codes",
-        "unknown-code and response-body filtering",
-        "non-JSON and false success flags",
-        "network rejection and real 20-second timeout",
-        "response-read rejection with retained HTTP status",
-        "exact metadata through existing consumer Notomo wrapper",
-        "input retention and button restoration"
-      ]
+        "repeated proof-invalid terminal rejection",
+        "proof unavailable",
+        "rate limit",
+        "unknown relay code/error filtering",
+        "malformed response",
+        "false success flags",
+        "network rejection",
+        "real 20-second timeout",
+        "body-read failure with status retained"
+      ],
+      "network": "all requests fulfilled offline or aborted; service workers blocked; DNS disabled; Node fetch/Cloudflare sockets forbidden",
+      "log": "/tmp/contact-browser-results.log"
     },
     {
-      "command": "CONTACT_DIST=/tmp/contact-baseline/dist CONTACT_BASELINE=1 node tests/contact-browser.cjs",
-      "source_sha": "d1e230f3171890096634b808f9408efd28b3b7fb",
-      "result": "15/15 passed; old metadata lacks all diagnostic status/cause"
-    },
-    {
-      "command": "node --test test/abuse-protection.test.js test/lead-relay.test.js",
-      "repository": "Leopere/hearth-home-contact-relay",
-      "source_sha": "2ff5a1ad076787d287835512d40655b22b95dded",
-      "result": "31/31 passed with fake dependencies"
-    },
-    {
-      "command": "git diff --check; node --check tests/contact-browser.cjs; make -n browser-test",
+      "command": "git diff --check; node --check tests/contact-browser.cjs",
       "result": "passed"
     },
     {
       "command": "./scripts/sync.sh /tmp/contact-review-embed",
-      "result": "passed; temporary review artifacts only; consumer untouched"
+      "result": "passed; four temporary review artifacts only; consumer repositories untouched"
     }
   ],
-  "read_only_consumer": {
-    "repository": "Leopere/staging-motherboardrepair-ca",
-    "branch": "staging",
-    "sha": "7d5de862274ce72e3bf237aabea2a56902933342",
-    "working_tree": "unchanged",
-    "existing_manifest_content_revision_matches_baseline": true
+  "historical_validation": {
+    "source_sha": "23484306dcd2fe4beff27173ec23de620df2de1f",
+    "native_browser_cases": 15,
+    "relay_tests": 31,
+    "note": "Historical evidence only, did not cover Graphics Promise caller; relay suite and baseline comparison not rerun for this focused follow-up."
   },
+  "read_only_sources": [
+    {
+      "repository": "Leopere/staging-motherboardrepair-ca",
+      "branch": "staging",
+      "sha": "7d5de862274ce72e3bf237aabea2a56902933342",
+      "working_tree": "unchanged"
+    },
+    {
+      "repository": "Leopere/graphicsrepair-ca",
+      "branch": "main",
+      "sha": "f52728fc539c7c70e06d24e4668de212e427aae4",
+      "working_tree": "unchanged"
+    },
+    {
+      "repository": "Leopere/hearth-home-contact-relay",
+      "branch": "main",
+      "sha": "2ff5a1ad076787d287835512d40655b22b95dded",
+      "working_tree": "unchanged"
+    }
+  ],
+  "review_embed_directory": "/tmp/contact-review-embed",
   "review_embed_manifest": {
     "source_repository": "Leopere/motherboardrepair-contact",
-    "source_revision": "sha256:b9f4a6c5df520906668f254ba687836ddb1a889f43ba820ae67b1f2c94d387aa",
-    "sha256": "0278e24bba7ec951603f4abab9304eceefe5eee50bad30e8d0ba23a276eee3b6",
+    "source_revision": "sha256:2d1d83e083943a7540335e22282e7606a0b7121540c41a9b886317d690ecb0d9",
+    "sha256": "90090136e89e41e4e72d31db55944ea2f86b93b41c19a8a102ce113dc8398492",
     "wasm_exec_sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
-    "loader_sha256": "0c399a09e5dcca613cf5b789f2254eb3a4981f992739cca988ab09837f7c61be",
+    "loader_sha256": "0a58738b67e4ce6ec64bbd89563d427b31225d167f5b79fbf4e3cce47f5329f0",
     "go_version": "go1.26.7"
   },
-  "consumer_update_responsibility": {
-    "owner": "primary",
-    "files": [
-      "docs/contact-embed/contact-form.wasm",
-      "docs/contact-embed/wasm_exec.js",
-      "docs/contact-embed/loader.js",
-      "docs/contact-embed/manifest.json"
-    ],
-    "cache_key_references": 62,
-    "reference_roots": [
-      "docs/",
-      "locales/templates/"
-    ],
-    "old_loader_key": "0adfa014090a",
-    "new_loader_key": "0c399a09e5dc",
-    "requirements": "Primary reviews concrete runtime patch and consumer artifact/reference delta before any consumer/staging/production change or push; run existing embed/source/localization/build/intercepted browser checks."
+  "consumer_artifacts": [
+    {
+      "filename": "contact-form.wasm",
+      "sha256": "90090136e89e41e4e72d31db55944ea2f86b93b41c19a8a102ce113dc8398492",
+      "motherboard_destination": "docs/contact-embed/contact-form.wasm",
+      "graphics_destination": "site/contact-embed/contact-form.wasm"
+    },
+    {
+      "filename": "wasm_exec.js",
+      "sha256": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+      "motherboard_destination": "docs/contact-embed/wasm_exec.js",
+      "graphics_destination": "site/contact-embed/wasm_exec.js"
+    },
+    {
+      "filename": "loader.js",
+      "sha256": "0a58738b67e4ce6ec64bbd89563d427b31225d167f5b79fbf4e3cce47f5329f0",
+      "motherboard_destination": "docs/contact-embed/loader.js",
+      "graphics_destination": "site/contact-embed/loader.js"
+    },
+    {
+      "filename": "manifest.json",
+      "sha256": "fd1b6e64a32fa2e678a9d827648fd607a7ac53e942dfcf463282f47f9c56dc22",
+      "motherboard_destination": "docs/contact-embed/manifest.json",
+      "graphics_destination": "site/contact-embed/manifest.json"
+    }
+  ],
+  "cachekeys": {
+    "motherboard_loader_query_v_first12": "0a58738b67e4",
+    "wasm_loader_embedded_v_full": "90090136e89e41e4e72d31db55944ea2f86b93b41c19a8a102ce113dc8398492",
+    "wasm_exec_loader_embedded_v_full": "0c949f4996f9a89698e4b5c586de32249c3b69b7baadb64d220073cc04acba14",
+    "motherboard_old_loader_key": "0adfa014090a",
+    "graphics_loader_reference": "current builder uses /contact-embed/loader.js without query; review its actual publication/cache contract at consumer delivery"
   },
-  "primary_next_delivery_command": "From the pinned runtime source checkout, after primary review of the consumer update: make verify; ./scripts/sync.sh \"$CONSUMER/docs/contact-embed\"",
-  "primary_jenkins_delivery_command": "In approved consumer checkout using its existing delivery flow: ./scripts/deploy-jenkins.sh",
-  "jenkins_script_target": "/opt/homebrew/bin/python3 /Users/aedev/.local/share/jenkins-local/jenkins-delivery.py deploy-motherboardrepair-ca",
+  "source_build_commands": [
+    "git checkout <tested_sha>",
+    "make verify",
+    "./scripts/sync.sh /tmp/contact-review-embed"
+  ],
+  "consumer_delivery": {
+    "status": "pending_primary_review_and_delivery_for_both_consumers",
+    "owner": "primary",
+    "motherboard": "After approval: make verify; ./scripts/sync.sh \"$CONSUMER/docs/contact-embed\"; update loader references under docs/ and locales/templates/ to new first12 loader digest; run existing affected consumer checks.",
+    "graphics": "After approval: make verify; ./scripts/sync.sh \"$GRAPHICS/site/contact-embed\"; review loader references/cache handling and run existing affected consumer checks.",
+    "jenkins": "Primary owns both consumer delivery flows. This runner must not invoke them. Motherboard tracks scripts/deploy-jenkins.sh; Graphics has no verified Jenkins job/target in its inspected runbook. Verify target before publication.",
+    "live_acceptance_and_notomo_closure": "primary owns; pending; original relay failure not proven fixed"
+  },
   "primary_read_only_logs": {
     "host": "forms.motherboardrepair.ca",
     "service": "Cloudflare website-lead-intake",
@@ -115,10 +220,16 @@
   },
   "primary_owns": [
     "review",
-    "consumer patch",
+    "both consumer patches",
     "Jenkins delivery",
     "live acceptance",
     "Notomo closure"
   ],
-  "updated_at": "2026-11-08T03:23:24.229166+00:00"
+  "updated_at": "2026-11-08T04:48:03.558413+00:00",
+  "runner_environment": {
+    "PATH_prefix": "/tmp/go/bin:/tmp/contact-tools/usr/bin",
+    "NODE_PATH": "/tmp/contact-browser/node_modules",
+    "LD_LIBRARY_PATH": "/tmp/contact-tools/usr/lib/x86_64-linux-gnu",
+    "dependencies": "Go, GNU Make and browser libraries extracted into temporary directories; consumer trees not modified."
+  }
 }
