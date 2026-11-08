@@ -67,7 +67,14 @@ func main() {
 			challenge, err := getChallenge(false)
 			return challenge, err
 		}),
-		"submitProtectedPayload": promiseFunction(func(args []js.Value) (any, error) {
+		"submitProtectedPayload": promiseFunction(func(args []js.Value) (value any, err error) {
+			formID := "unknown"
+			defer func() {
+				if err != nil {
+					reportFailure(formID, err)
+					err = &submissionFailure{details: failureDetails(formID, err)}
+				}
+			}()
 			if len(args) == 0 {
 				return nil, errors.New("missing form payload")
 			}
@@ -75,11 +82,23 @@ func main() {
 			if err != nil {
 				return nil, err
 			}
+			formID = data.FormID
 			return submit(data)
 		}),
 	}
 	js.Global().Set("MRCContactWASM", js.ValueOf(api))
 	select {}
+}
+
+// Keep exported Promise diagnostics available even without a Notomo reporter.
+// The message supports callers that only log error.message; details supports
+// structured consumers. Both use the same finite metadata boundary as reporting.
+type submissionFailure struct {
+	details map[string]any
+}
+
+func (f *submissionFailure) Error() string {
+	return fmt.Sprintf("contact form submission failed: %s (status %d)", f.details["code"], f.details["status"])
 }
 
 func initFunction() js.Func {
@@ -102,7 +121,12 @@ func promiseFunction(work func([]js.Value) (any, error)) js.Func {
 			go func() {
 				value, err := work(copied)
 				if err != nil {
-					reject.Invoke(js.Global().Get("Error").New(err.Error()))
+					rejection := js.Global().Get("Error").New(err.Error())
+					var failure *submissionFailure
+					if errors.As(err, &failure) {
+						rejection.Set("details", js.ValueOf(failure.details))
+					}
+					reject.Invoke(rejection)
 					return
 				}
 				resolve.Invoke(toJS(value))

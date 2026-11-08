@@ -44,7 +44,7 @@ func failureDetails(formID string, err error) map[string]any {
 	// Form IDs are source identifiers, not free-form telemetry.
 	switch formID {
 	case "motherboard_repair_quote", "motherboard_repair_business", "motherboard_repair_careers_inquiry", "ads_landing_quote", "builders_club_quote", "trios_college_quote",
-		"motherboard_repair_feedback", "motherboard_repair_positive_feedback":
+		"motherboard_repair_feedback", "motherboard_repair_positive_feedback", "graphics_card_repair_quote":
 	default:
 		formID = "unknown"
 	}

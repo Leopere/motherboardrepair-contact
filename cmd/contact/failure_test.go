@@ -38,4 +38,7 @@ func TestFailureDetailsPrivacyBoundary(t *testing.T) {
 	if got := failureDetails(private, errors.New(private)); got["form_id"] != "unknown" {
 		t.Fatal("unbounded form ID escaped")
 	}
+	if got := failureDetails("graphics_card_repair_quote", errors.New(private)); got["form_id"] != "graphics_card_repair_quote" || got["code"] != "unknown" {
+		t.Fatal("Graphics form ID or unknown-error boundary lost")
+	}
 }
