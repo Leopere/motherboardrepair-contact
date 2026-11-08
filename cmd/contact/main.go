@@ -195,7 +195,7 @@ func handleSubmit(form js.Value) {
 	}
 	showMessage(message, "info", copy.Submitting)
 	if _, err := submit(data); err != nil {
-		reportFailure(data.FormID)
+		reportFailure(data.FormID, err)
 		showMessage(message, "error", copy.RelayError)
 		restore()
 		return
@@ -313,12 +313,10 @@ func showMessage(element js.Value, kind, text string) {
 	element.Get("style").Set("display", "block")
 }
 
-func reportFailure(formID string) {
+func reportFailure(formID string, err error) {
 	reporter := js.Global().Get("reportNotomoIssue")
 	if reporter.Type() == js.TypeFunction {
-		reporter.Invoke("contact_form_submission_failed", js.ValueOf(map[string]any{
-			"component": "contact_form", "form_id": formID, "stage": "submit",
-		}))
+		reporter.Invoke("contact_form_submission_failed", js.ValueOf(failureDetails(formID, err)))
 	}
 }
 
@@ -333,7 +331,7 @@ func submit(data payload) (any, error) {
 		}
 		counter, err := solveProof(challenge.Challenge, payloadDigest(data), challenge.Difficulty, maxCounter)
 		if err != nil {
-			return nil, err
+			return nil, &failure{class: "proof_compute"}
 		}
 		body := payloadMap(data)
 		body["form_proof_token"] = challenge.Challenge
@@ -346,18 +344,15 @@ func submit(data payload) (any, error) {
 			continue
 		}
 		if status < 200 || status >= 300 || !response.OK || !response.Success {
-			message := response.Error
-			if message == "" {
-				message = response.Message
+			class := "submit_rejected"
+			if status < 200 || status >= 300 {
+				class = "submit_http"
 			}
-			if message == "" {
-				message = fmt.Sprintf("form relay returned HTTP %d", status)
-			}
-			return nil, errors.New(message)
+			return nil, &failure{class: class, status: status, code: allowlistedRelayCode(response.Code)}
 		}
 		return response, nil
 	}
-	return nil, errors.New("unable to verify this form submission")
+	return nil, &failure{class: "submit_rejected"}
 }
 
 func getChallenge(force bool) (proofChallenge, error) {
@@ -371,11 +366,11 @@ func getChallenge(force bool) (proofChallenge, error) {
 		return proofChallenge{}, err
 	}
 	if status < 200 || status >= 300 {
-		return proofChallenge{}, fmt.Errorf("form verification returned HTTP %d: %s", status, response.Error)
+		return proofChallenge{}, &failure{class: "proof_http", status: status, code: allowlistedRelayCode(response.Code)}
 	}
 	var challenge proofChallenge
 	if err := json.Unmarshal(raw, &challenge); err != nil || challenge.Challenge == "" || challenge.Difficulty < 0 {
-		return proofChallenge{}, errors.New("form verification returned an invalid challenge")
+		return proofChallenge{}, &failure{class: "proof_challenge", status: status}
 	}
 	cachedProof = challenge
 	return challenge, nil
@@ -391,7 +386,17 @@ func fetchJSON(url, method string, body any) (int, responseData, error) {
 }
 
 func fetchRaw(url, method string, body any) (int, responseData, []byte, error) {
+	phase := "submit"
+	if url == proofURL {
+		phase = "proof"
+	}
 	controller := js.Global().Get("AbortController").New()
+	requestFailure := func(kind string, status int) error {
+		if controller.Get("signal").Get("aborted").Bool() {
+			kind = "timeout"
+		}
+		return &failure{class: phase + "_" + kind, status: status}
+	}
 	options := map[string]any{
 		"method":  method,
 		"headers": map[string]any{"Accept": "application/json"},
@@ -407,17 +412,17 @@ func fetchRaw(url, method string, body any) (int, responseData, []byte, error) {
 	defer timer.Stop()
 	result, err := await(js.Global().Call("fetch", url, js.ValueOf(options)))
 	if err != nil {
-		return 0, responseData{}, nil, errors.New("form relay request failed or timed out")
+		return 0, responseData{}, nil, requestFailure("network", 0)
 	}
 	status := result.Get("status").Int()
 	text, err := await(result.Call("text"))
 	if err != nil {
-		return status, responseData{}, nil, errors.New("unable to read form relay response")
+		return status, responseData{}, nil, requestFailure("response_read", status)
 	}
 	raw := []byte(text.String())
 	var response responseData
 	if err := json.Unmarshal(raw, &response); err != nil {
-		return status, responseData{}, raw, errors.New("form relay returned a non-JSON response")
+		return status, responseData{}, raw, &failure{class: phase + "_response_json", status: status}
 	}
 	return status, response, raw, nil
 }

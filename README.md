@@ -16,3 +16,5 @@ make sync
 Copyright © 2026 ColinKnapp.com. All rights reserved.
 
 No license is granted except as required by applicable law or the terms of the hosting platform. Contact ColinKnapp.com for written permission before you use, copy, modify, or distribute this work.
+
+Offline contact-failure diagnosis, bounded Notomo metadata, browser regression setup, and the primary-owned consumer/Jenkins handoff are documented in [the contact failure runbook](docs/contact-failure-runbook.md).

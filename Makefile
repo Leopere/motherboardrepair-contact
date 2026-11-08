@@ -1,4 +1,4 @@
-.PHONY: build test check verify sync clean
+.PHONY: build test check verify sync clean browser-test
 
 build:
 	./scripts/build.sh
@@ -17,3 +17,7 @@ sync: verify
 
 clean:
 	rm -rf dist
+
+# Optional offline integration; see docs/contact-failure-runbook.md for checkouts/dependencies.
+browser-test: build
+	node tests/contact-browser.cjs
