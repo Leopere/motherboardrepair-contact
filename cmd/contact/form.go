@@ -322,3 +322,12 @@ func hasLeadingZeroBits(value []byte, bits int) bool {
 	remaining := bits % 8
 	return remaining == 0 || value[wholeBytes]&(0xff<<uint(8-remaining)) == 0
 }
+
+// A duration from receipt cannot be skipped by a fast visitor clock. The
+// fallback supports the existing Worker protocol during a rolling deployment.
+func proofReadyDelay(readyInMS int64) int64 {
+	if readyInMS < 2500 || readyInMS > 10000 {
+		return 2500
+	}
+	return readyInMS
+}

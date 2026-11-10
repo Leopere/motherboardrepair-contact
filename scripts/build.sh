@@ -10,7 +10,7 @@ wasm_exec="$(go env GOROOT)/lib/wasm/wasm_exec.js"
 if [[ ! -f "$wasm_exec" ]]; then
     wasm_exec="$(go env GOROOT)/misc/wasm/wasm_exec.js"
 fi
-cp "$wasm_exec" "$dist_dir/wasm_exec.js"
+cp -f "$wasm_exec" "$dist_dir/wasm_exec.js"
 wasm_digest="$(shasum -a 256 "$dist_dir/contact-form.wasm" | awk '{print $1}')"
 runtime_digest="$(shasum -a 256 "$dist_dir/wasm_exec.js" | awk '{print $1}')"
 sed -e "s/__WASM_SHA256__/$wasm_digest/g" \

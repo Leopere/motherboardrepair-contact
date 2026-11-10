@@ -28,10 +28,13 @@ var (
 )
 
 type proofChallenge struct {
-	Challenge  string `json:"challenge"`
-	Difficulty int    `json:"difficulty"`
-	ReadyAt    int64  `json:"ready_at"`
-	ExpiresAt  int64  `json:"expires_at"`
+	Challenge      string `json:"challenge"`
+	Difficulty     int    `json:"difficulty"`
+	ReadyAt        int64  `json:"ready_at"`
+	ExpiresAt      int64  `json:"expires_at"`
+	ReadyInMS      int64  `json:"ready_in_ms"`
+	readyDeadline  time.Time
+	expiryDeadline time.Time
 }
 
 type responseData struct {
@@ -365,7 +368,7 @@ func submit(data payload) (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if wait := time.Until(time.UnixMilli(challenge.ReadyAt)); wait > 0 {
+		if wait := time.Until(challenge.readyDeadline); wait > 0 {
 			time.Sleep(wait)
 		}
 		counter, err := solveProof(challenge.Challenge, payloadDigest(data), challenge.Difficulty, maxCounter)
@@ -397,7 +400,7 @@ func submit(data payload) (any, error) {
 func getChallenge(force bool) (proofChallenge, error) {
 	challengeLock.Lock()
 	defer challengeLock.Unlock()
-	if !force && cachedProof.Challenge != "" && cachedProof.ExpiresAt > time.Now().Add(time.Minute).UnixMilli() {
+	if !force && cachedProof.Challenge != "" && time.Until(cachedProof.expiryDeadline) > time.Minute {
 		return cachedProof, nil
 	}
 	status, response, raw, err := fetchRaw(proofURL, "GET", nil)
@@ -411,6 +414,16 @@ func getChallenge(force bool) (proofChallenge, error) {
 	if err := json.Unmarshal(raw, &challenge); err != nil || challenge.Challenge == "" || challenge.Difficulty < 0 {
 		return proofChallenge{}, &failure{class: "proof_challenge", status: status}
 	}
+	// Both deadlines use elapsed time from receipt, never the visitor's wall clock.
+	// Old Workers omit ready_in_ms; retain their 2.5-second minimum age safely.
+	received := time.Now()
+	delay := proofReadyDelay(challenge.ReadyInMS)
+	challenge.readyDeadline = received.Add(time.Duration(delay) * time.Millisecond)
+	lifetime := challenge.ExpiresAt - challenge.ReadyAt
+	if lifetime < 0 {
+		lifetime = 0
+	}
+	challenge.expiryDeadline = received.Add(time.Duration(lifetime) * time.Millisecond)
 	cachedProof = challenge
 	return challenge, nil
 }
