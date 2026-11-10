@@ -152,3 +152,14 @@ func TestValidatePayloadFields(t *testing.T) {
 		})
 	}
 }
+
+func TestProofReadyDelay(t *testing.T) {
+	for _, value := range []int64{0, -1, 1, 2499, 10001} {
+		if got := proofReadyDelay(value); got != 2500 {
+			t.Fatalf("delay(%d) = %d", value, got)
+		}
+	}
+	if got := proofReadyDelay(3000); got != 3000 {
+		t.Fatalf("server delay = %d", got)
+	}
+}

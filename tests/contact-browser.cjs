@@ -16,6 +16,9 @@ assert(consumer && relay && graphics, 'Set CONTACT_CONSUMER, CONTACT_RELAY and C
 const graphicsHTML = execFileSync('python3', ['-B', '-c',
     "import runpy,sys; m=runpy.run_path(sys.argv[1]); print(m['render_index']('en'))",
     path.join(graphics, 'build_graphics_site.py')], { encoding: 'utf8' });
+const graphicsFrenchHTML = execFileSync('python3', ['-B', '-c',
+    "import runpy,sys; m=runpy.run_path(sys.argv[1]); print(m['render_index']('fr'))",
+    path.join(graphics, 'build_graphics_site.py')], { encoding: 'utf8' });
 // The public handler re-exports a Workflow class. No socket or Workflow may run.
 registerHooks({ resolve(specifier, context, next) {
     if (specifier === 'cloudflare:sockets') return { url: 'data:text/javascript,export function connect(){throw Error("offline sockets forbidden")}', shortCircuit: true };
@@ -67,7 +70,12 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
         }
         runs.push({ scenario: 'invalid_payload', expected: ['unknown', 0, ''], graphicsPath: true, throwingReporter: true });
         runs.push({ scenario: 'unavailable', expected: ['submit_http', 503, 'FORM_PROOF_UNAVAILABLE'], graphicsPath: false, throwingReporter: true, directReporter: true });
-        for (const { scenario: initialScenario, expected, graphicsPath, noReporter, throwingReporter, directReporter } of runs) {
+        runs.push({ scenario: 'queued', expected: null, graphicsPath: false, clockSkew: 600 });
+        for (const scenario of ['queued', 'refresh', 'proof_rejected']) {
+            runs.push({ scenario, expected: cases.find(row => row[0] === scenario)[1], graphicsPath: true, french: true, clockSkew: 600 });
+        }
+        for (const { scenario: initialScenario, expected, graphicsPath, noReporter, throwingReporter, directReporter, french, clockSkew } of runs) {
+            if (process.env.CONTACT_CLOCK_ONLY === '1' && !clockSkew) continue;
             let scenario = initialScenario;
             if (process.env.CONTACT_BASELINE === '1' && graphicsPath) continue;
             const origin = graphicsPath ? 'https://graphicsrepair.ca' : motherboardOrigin;
@@ -111,7 +119,7 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
                         return route.fulfill({ status: result.status, headers: Object.fromEntries(result.headers), body: await result.text() });
                     }
                     if (url.origin !== origin) return route.abort();
-                    if (graphicsPath && url.pathname === '/') return route.fulfill({ status: 200, contentType: 'text/html', body: graphicsHTML });
+                    if (graphicsPath && url.pathname === (french ? '/fr/' : '/')) return route.fulfill({ status: 200, contentType: 'text/html', body: french ? graphicsFrenchHTML : graphicsHTML });
                     const relative = decodeURIComponent(url.pathname).replace(/^\/+/, '');
                     const base = relative.startsWith('contact-embed/') ? dist : graphicsPath ? path.join(graphics, 'site') : path.join(consumer, 'docs');
                     const filename = path.resolve(base, relative.startsWith('contact-embed/') ? relative.slice('contact-embed/'.length) : relative);
@@ -128,7 +136,14 @@ const mime = { '.html': 'text/html', '.js': 'application/javascript', '.css': 't
                     return response;
                 };
             }, { forms, privateSentinel });
-            await page.goto(origin + (graphicsPath ? '/' : '/contact.html'));
+            if (clockSkew) await page.addInitScript(seconds => {
+                const RealDate = Date;
+                window.Date = class extends RealDate {
+                    constructor(...args) { super(...(args.length ? args : [RealDate.now() + seconds * 1000])); }
+                    static now() { return RealDate.now() + seconds * 1000; }
+                };
+            }, clockSkew);
+            await page.goto(origin + (graphicsPath ? (french ? '/fr/' : '/') : '/contact.html'));
             await page.waitForFunction(graphicsPath
                 ? () => window.MRCContactWASM && window.ContactForm === window.MRCContactWASM
                 : () => window.MRCContactWASM && document.querySelector('#quoteForm').dataset.mrcWasmInitialized === 'true');

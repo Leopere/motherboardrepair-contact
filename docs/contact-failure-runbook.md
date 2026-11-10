@@ -78,3 +78,15 @@ The tracked Motherboard consumer `.deploy-it.json` delegates publication to `./s
 Tested source/test commit: `8a2ae6a40a16f662d2369eadda136b57ff450631`. Go 1.26.7 `make verify` and all 35 browser cases passed (15 native / 18 Graphics UI / 2 exported API). Source commands, generated manifest and exact four artifact hashes are recorded in `READY-CONTACT.json`. Loader reference key: `0a58738b67e4`; embedded WASM/runtime query keys use the full manifest digests. The manifest content revision is `sha256:2d1d83e083943a7540335e22282e7606a0b7121540c41a9b886317d690ecb0d9`, not a Git SHA. The final evidence-only commit does not change the tested runtime or test code; its exact pushed SHA is recorded in `/home/runner/READY-CONTACT.json` on this runner. Generated review artifacts are under `/tmp/contact-review-embed`, never in a consumer checkout. Reproduce them from the tested source with `make verify` and `./scripts/sync.sh /tmp/contact-review-embed`.
 
 The earlier `2348430` evidence comprised 15 native-only cases and 31 relay tests; it did not cover the exported Graphics caller. Those relay tests are historical and were not rerun for this boundary-only follow-up. No live delivery or original relay-failure resolution is claimed.
+
+## Visitor clock skew regression
+
+Proof readiness and cache expiry use elapsed time from challenge receipt. The
+client waits `ready_in_ms` (at least 2500 ms); older Workers without that field
+use 2500 ms too. It never compares the server's readiness timestamp to the
+visitor's wall clock. A visitor clock ten minutes fast previously skipped the
+minimum age on both attempts. The browser matrix adds that clock skew on the
+native page and `/fr/`, including refreshed success and repeated rejection.
+Use `CONTACT_CLOCK_ONLY=1` with the existing browser command for these cases.
+`FORM_PROOF_INVALID` still refreshes and retries exactly once; terminal failure
+retains typed values. The fallback loader query is bumped for rolling updates.

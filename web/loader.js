@@ -124,7 +124,7 @@
     startWASM().catch(async error => {
         console.warn('Contact WASM unavailable; using JavaScript fallback:', error);
         try {
-            await loadScript(fallbackPath());
+            await loadScript(fallbackPath() + '?v=elapsed-proof-v1');
             const fallback = window.ContactForm;
             if (!fallback || fallback === bridge || typeof fallback.init !== 'function') {
                 throw new Error('JavaScript fallback did not initialize');
